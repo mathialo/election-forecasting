@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 import pandas as pd
 
@@ -10,7 +12,7 @@ def simulate_election(
     local_df = local_poll_data.drop(columns=["Måling", "Dato"])
     national_df = national_poll_data.drop(columns=["Måling", "Dato"])
 
-    means: pd.Series = local_df.mean()
+    means: pd.Series = local_df.mean().fillna(national_df.mean())
     stds: pd.Series = local_df.std().fillna(national_df.std()) * 2.5
 
     vote_distributions = np.random.normal(means.values, stds.values, [num, means.size]).astype(np.float64)
