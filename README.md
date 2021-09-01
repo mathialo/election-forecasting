@@ -4,7 +4,7 @@ Playing around with election models for the Norwegian 2021 election
 
 Run the model by running 
 ```
-$ poetry run model <simulations>
+$ poetry run model <epochs> <simulations>
 ```
 
 The model uses polling data from all 19 electoral districts to predict the election result of each districts, and runs
