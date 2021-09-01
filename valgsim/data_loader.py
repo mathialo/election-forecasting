@@ -52,6 +52,7 @@ representatives = pd.DataFrame(
         "Østfold": 8,
     },
     index=["representatives"],
+    dtype=int,
 )
 
 population = pd.DataFrame(
@@ -80,22 +81,56 @@ population = pd.DataFrame(
 )
 
 
+participation_2017 = pd.DataFrame(
+    {
+        "Østfold": 0.750,
+        "Akershus": 0.812,
+        "Oslo": 0.802,
+        "Hedmark": 0.767,
+        "Oppland": 0.762,
+        "Buskerud": 0.773,
+        "Vestfold": 0.776,
+        "Telemark": 0.752,
+        "Aust-Agder": 0.771,
+        "Vest-Agder": 0.770,
+        "Rogaland": 0.786,
+        "Hordaland": 0.811,
+        "Sogn og Fjordane": 0.794,
+        "Møre og Romsdal": 0.774,
+        "Sør-Trøndelag": 0.788,
+        "Nord-Trøndelag": 0.773,
+        "Nordland": 0.751,
+        "Troms": 0.756,
+        "Finnmark": 0.726,
+    },
+    index=["participation"],
+)
+
+
 electorate = pd.concat([district_ids, population, representatives])
 
 
 assumed_participation = 0.75
 
 
-def load_data(from_date: str, to_date: str, district="Alle") -> pd.DataFrame:
-    response = requests.get(
-        f"http://www.pollofpolls.no/lastned.csv?type=riks&kommuneid={0 if district == 'Alle' else district_ids.get(district).id}&tabell=liste_galluper&start={from_date}&slutt={to_date}"
-    )
+def load_data(from_date: str, to_date: str, district="Alle", remote_load=True) -> pd.DataFrame:
+    if remote_load:
+        response = requests.get(
+            f"http://www.pollofpolls.no/lastned.csv?type=riks&kommuneid={0 if district == 'Alle' else district_ids.get(district).id}&tabell=liste_galluper&start={from_date}&slutt={to_date}"
+        )
 
-    csv = response.content.decode(encoding="latin_1")
-    csv = "\n".join([l for l in csv.split("\n")[2:]])
-    csv = re.sub(r"\s*\(\d+\)", "", csv)
-    csv = re.sub(r",", ".", csv)
+        csv = response.content.decode(encoding="latin_1")
+        csv = "\n".join([l for l in csv.split("\n")[2:]])
+        csv = re.sub(r"\s*\(\d+\)", "", csv)
+        csv = re.sub(r",", ".", csv)
 
-    data: pd.DataFrame = pd.read_csv(StringIO(csv), delimiter=";")
-    data["Dato"] = pd.to_datetime(data["Dato"])
-    return data
+        data: pd.DataFrame = pd.read_csv(StringIO(csv), delimiter=";")
+        data["Dato"] = pd.to_datetime(data["Dato"], dayfirst=True)
+        with open(f"data/{district}.csv", "w") as f:
+            data.to_csv(f, index=False)
+        return data
+
+    else:
+        data = pd.read_csv(f"data/{district}.csv")
+        data["Dato"] = pd.to_datetime(data["Dato"])
+        return data

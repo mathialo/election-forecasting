@@ -6,22 +6,27 @@ from valgsim.electoral import distribute, sainte_lagues
 from valgsim.simulator import simulate_election
 
 
-def run_model(simulations: int) -> pd.DataFrame:
-    national_poll_data = load_data("2021-08-01", "2021-09-01")
+def run_model(epochs: int, simulations: int) -> None:
+    national_poll_data = load_data("2021-06-01", "2021-09-13", remote_load=True)
+    for county in electorate:
+        load_data("2021-06-01", "2021-09-13", county, remote_load=True)
 
     parties = national_poll_data.columns[~national_poll_data.columns.isin(["Måling", "Dato"])]
-    votes = pd.DataFrame(index=np.arange(simulations), columns=parties).fillna(0)
-    representatives = pd.DataFrame(index=np.arange(simulations), columns=parties).fillna(0)
+    votes = pd.DataFrame(index=np.arange(simulations * epochs), columns=parties).fillna(0)
+    representatives = pd.DataFrame(index=np.arange(simulations * epochs), columns=parties).fillna(0)
 
-    for county in electorate:
-        local_votes = simulate_election(
-            electorate=electorate[county],
-            local_poll_data=load_data("2021-08-01", "2021-09-01", county),
-            national_poll_data=national_poll_data,
-            num=simulations,
-        )
-        votes += local_votes
-        representatives += distribute(sainte_lagues, local_votes, electorate[county].representatives)
+    for epoch in range(epochs):
+        for county in electorate:
+            local_votes = simulate_election(
+                electorate=electorate[county],
+                local_poll_data=load_data("2021-06-01", "2021-09-13", county, remote_load=False),
+                national_poll_data=national_poll_data,
+                num=simulations,
+            )
+            votes.values[epoch * simulations : (epoch + 1) * simulations, :] += local_votes
+            representatives.values[epoch * simulations : (epoch + 1) * simulations, :] += distribute(
+                sainte_lagues, local_votes, electorate[county].representatives
+            )
 
     votes_core = votes.drop(columns=["Andre"])
     vote_share_core = votes_core / votes_core.values.sum(axis=1, keepdims=True)
@@ -42,6 +47,7 @@ def run_model(simulations: int) -> pd.DataFrame:
     print()
 
     print("Persentiler (nasjonal oppslutning):")
+
     vote_p1 = vote_share.quantile(q=0.01).multiply(100).round(1)
     vote_p5 = vote_share.quantile(q=0.05).multiply(100).round(1)
     vote_p10 = vote_share.quantile(q=0.1).multiply(100).round(1)
@@ -88,6 +94,9 @@ def run_model(simulations: int) -> pd.DataFrame:
     apspsvrmdg = (
         reps_total["Ap"] + reps_total["Sp"] + reps_total["SV"] + reps_total["Rødt"] + reps_total["MDG"] >= 169 // 2 + 1
     ).mean() * 100
+    apsvrmdg = (
+        reps_total["Ap"] + reps_total["SV"] + reps_total["Rødt"] + reps_total["MDG"] >= 169 // 2 + 1
+    ).mean() * 100
     hfrp = (reps_total["Høyre"] + reps_total["Frp"] >= 169 // 2 + 1).mean() * 100
     hfrpvkrf = (
         reps_total["Høyre"] + reps_total["Frp"] + reps_total["Venstre"] + reps_total["KrF"] >= 169 // 2 + 1
@@ -95,5 +104,6 @@ def run_model(simulations: int) -> pd.DataFrame:
     print(f"{'Ap+Sp':15}{apsp.round(2)}")
     print(f"{'Ap+Sp+SV':15}{apspsv.round(2)}")
     print(f"{'Ap+Sp+SV+R+MDG':15}{apspsvrmdg.round(2)}")
+    print(f"{'Ap+SV+R+MDG':15}{apsvrmdg.round(2)}")
     print(f"{'H+FrP':15}{hfrp.round(2)}")
     print(f"{'H+FrP+V+KrF':15}{hfrpvkrf.round(2)}")
