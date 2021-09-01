@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import numpy as np
 import pandas as pd
 
@@ -6,10 +8,13 @@ from valgsim.electoral import distribute, sainte_lagues
 from valgsim.simulator import simulate_election
 
 
-def run_model(epochs: int, simulations: int) -> None:
-    national_poll_data = load_data("2021-06-01", "2021-09-13", remote_load=True)
-    for county in electorate:
-        load_data("2021-06-01", "2021-09-13", county, remote_load=True)
+def run_model(epochs: int, simulations: int, skip_load: bool, poll_from: str, poll_to: str, election_date: str) -> None:
+    if not skip_load:
+        national_poll_data = load_data(poll_from, poll_to, remote_load=True)
+        for county in electorate:
+            load_data(poll_from, poll_to, county, remote_load=True)
+    else:
+        national_poll_data = load_data(poll_from, poll_to, remote_load=False)
 
     parties = national_poll_data.columns[~national_poll_data.columns.isin(["Måling", "Dato"])]
     votes = pd.DataFrame(index=np.arange(simulations * epochs), columns=parties).fillna(0)
@@ -19,9 +24,10 @@ def run_model(epochs: int, simulations: int) -> None:
         for county in electorate:
             local_votes = simulate_election(
                 electorate=electorate[county],
-                local_poll_data=load_data("2021-06-01", "2021-09-13", county, remote_load=False),
+                local_poll_data=load_data(poll_from, poll_to, county, remote_load=False),
                 national_poll_data=national_poll_data,
                 num=simulations,
+                election_date=datetime.fromisoformat(election_date),
             )
             votes.values[epoch * simulations : (epoch + 1) * simulations, :] += local_votes
             representatives.values[epoch * simulations : (epoch + 1) * simulations, :] += distribute(
