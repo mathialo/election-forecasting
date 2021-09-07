@@ -21,7 +21,7 @@ def simulate_election(
 
     final_means_prediction = scale_with_last(predicted_means, local_poll_data, election_date)
 
-    stds: pd.Series = local_df.std().fillna(national_df.std()) * 3
+    stds: pd.Series = local_df.std().fillna(national_df.std()) * 2
 
     vote_distributions = np.random.normal(
         final_means_prediction.values, stds.values, [num, final_means_prediction.size]
@@ -37,10 +37,7 @@ def simulate_election(
 
 
 def linear_model(poll_data: pd.DataFrame) -> np.array:
-    dates = poll_data["Dato"]
-    series = poll_data.drop(columns=["Måling", "Dato"])
-
-    return np.polyfit(dates.view("uint64"), series, 1)
+    return np.polyfit(poll_data["Dato"].view("uint64"), poll_data.drop(columns=["Måling", "Dato"]), 1)
 
 
 def predict_future(local_poll_data: pd.DataFrame, national_poll_data: pd.DataFrame, target_date: datetime) -> pd.Series:
